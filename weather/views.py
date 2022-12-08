@@ -45,16 +45,31 @@ def index(request):
         if db_city:
             return HttpResponse(f"{city_name} already exists!")
         form.save()
-
+    days_left = "You are an admin, your subscription never ends"
+    if not request.user.is_superuser:
+        days_left = left_days(request=request)
+        days_left = f"Your subscription ends after {days_left}days"
     form = CityForm()
     weather_data = weather_date()   
-    context = {'weather_data':weather_data,'form' : form}
+    context = {'weather_data':weather_data, 'form' : form, 'days_left': days_left }
     return render(request, 'weather/main.html',context)
 
 
+def left_days(request) -> int :
+    client = Client.objects.get(user=request.user)
+    subscription = Subscription.objects.filter(client=client).order_by('-date_paid')
+    last_time_paid = subscription[0].date_paid.date()
+    t_delta = datetime.timedelta(days=30)
+    days_left = last_time_paid + t_delta
+    days_left = days_left - datetime.date.today()
     
+    if days_left.days <= 0:
+        context = {}
+        return render(request,'weather/no_subscription.html',context)
+    else:
+        return days_left.days
 
-def check_db_bank_account(client):
+def check_db_bank_account(client: Client) -> bool:
     try:
         bank_account = BankAccount.objects.get(client=client)
         return True
@@ -62,7 +77,7 @@ def check_db_bank_account(client):
         return False
 
 
-def pay_subsctiption(request, client):
+def pay_subsctiption(client: Client) -> bool:
     Subscription.objects.create(client=client,date_paid=datetime.datetime.today())
     return True
 
@@ -76,7 +91,7 @@ def subscription_page(request):
         db_bank_account = check_db_bank_account(client=client)
         if db_bank_account == False:
             form.save()
-        pay = pay_subsctiption(request=request,client=client)
+        pay = pay_subsctiption(client=client)
         if pay == True:
             return redirect('/weather')
     form = BankForm()  

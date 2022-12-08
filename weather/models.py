@@ -44,6 +44,13 @@ class Subscription(models.Model):
     class Meta:
         verbose_name_plural = 'subscriptions'
 
+    def add_5day_subscription(sender,instance,created,**kwargs):
+        client = instance
+        t_delta = datetime.timedelta(days=25)
+        today = datetime.date.today()
+        date_paid = today - t_delta
+        if created:
+                Subscription.objects.create(client=client,date_paid=date_paid)
 
 
 
@@ -58,3 +65,4 @@ class City(models.Model):
 
 
 post_save.connect(Client.add_client,sender=User)
+post_save.connect(Subscription.add_5day_subscription,sender=Client)
